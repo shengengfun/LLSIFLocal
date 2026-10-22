@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "total": 342,
+  "named": 340,
+  "page": 1,
+  "size": 20,
+  "tracks": [
+    {
+      "live_track_id": 3,
+      "name": "Snow halation",
+      "name_en": "Snow Halation",
+      "cover_asset": "assets/image/live/live_icon/l_jacket_003.png",
+      "cover_url": "",
+      "has_cover": false,
+      "difficulty_count": 3,
+      "enabled_count": 2,
+      "difficulties": [
+        {"live_difficulty_id": 7, "difficulty": 1, "stage_level": 1,
+         "notes_setting_asset": "Live_0007.json", "s_rank_score": 1000, "s_rank_combo": 50,
+         "unlocked": true, "special": false, "enabled": true},
+        {"live_difficulty_id": 8, "difficulty": 2, "stage_level": 5,
+         "notes_setting_asset": "Live_0008.json", "s_rank_score": 2000, "s_rank_combo": 100,
+         "unlocked": true, "special": false, "enabled": true},
+        {"live_difficulty_id": 9, "difficulty": 3, "stage_level": 9,
+         "notes_setting_asset": "Live_0009.json", "s_rank_score": 3000, "s_rank_combo": 150,
+         "unlocked": false, "special": false, "enabled": false}
+      ]
+    },
+    {
+      "live_track_id": 5,
+      "name": "",
+      "name_en": "",
+      "cover_asset": "assets/image/live/live_icon/l_jacket_005.png",
+      "cover_url": "",
+      "has_cover": false,
+      "difficulty_count": 1,
+      "enabled_count": 1,
+      "difficulties": [
+        {"live_difficulty_id": 15, "difficulty": 4, "stage_level": 11,
+         "notes_setting_asset": "Live_0015.json", "s_rank_score": 4000, "s_rank_combo": 200,
+         "unlocked": true, "special": true, "enabled": true}
+      ]
+    }
+  ]
+}

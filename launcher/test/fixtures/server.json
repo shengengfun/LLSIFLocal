@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "pid": 12345,
+  "uptime_sec": 3725,
+  "root": "D:\\LLSIFLocal\\honoka-chan-dev",
+  "exe_path": "D:\\LLSIFLocal\\honoka-chan-dev\\honoka-chan.exe",
+  "go_version": "go1.24.0",
+  "os": "windows",
+  "arch": "amd64",
+  "listen_port": "8080",
+  "cdn_server": "http://192.168.0.106:8080/static",
+  "package_version": "97.4.6",
+  "data_db": "D:\\LLSIFLocal\\honoka-chan-dev\\assets\\data.db",
+  "main_db": "D:\\LLSIFLocal\\honoka-chan-dev\\db\\main.db",
+  "lan_ips": ["192.168.0.106"],
+  "user_count": 1
+}
