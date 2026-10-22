@@ -17,8 +17,8 @@ LoveLive! 学园偶像祭（国服 9.7.1）本地化运行的**桌面/移动启�
 | 文件 | 来源 | 说明 |
 |---|---|---|
 | 数据包 `LLSIFLocal-数据包-*.7z` | 单独分发（约 15 GB，超出 GitHub Release 单文件上限） | 服务端 + 全量游戏资源 |
-| [`LLSIFLocal-Launcher-1.0.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.0.0/LLSIFLocal-Launcher-1.0.0-windows-x64.zip) | [Release v1.0.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.0.0) | Windows 启动器 |
-| [`LLSIFLocal-Launcher-1.0.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.0.0/LLSIFLocal-Launcher-1.0.0-android.apk) | [Release v1.0.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.0.0) | Android 启动器（可选） |
+| [`LLSIFLocal-Launcher-1.1.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-windows-x64.zip) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Windows 启动器 |
+| [`LLSIFLocal-Launcher-1.1.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-android.apk) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Android 启动器（可选） |
 | 客户端 APK | 自备 | 需要按你的服务端 IP 改包，见第 4 节 |
 
 **磁盘要求**：解压数据包约 16 GB（压缩包本身另需 15 GB）。
@@ -123,6 +123,31 @@ powershell -ExecutionPolicy Bypass -File .\tools\patch_client_lan.ps1 -Ip 192.16
     自动打歌开关、校准轨道、判定偏移 ±20 ms
   - **连接**：服务器地址、端口、账号切换（手机号 + 密码）
 
+## 三·五、自定义卡面
+
+卡面纹理在**服务端资源包**里（`static/Android/archives/*.zip`），不在 APK 内，
+所以换图不用重打包、不用重签名。
+
+启动器：**卡池 → 右上角图片按钮（或某张卡上的图片按钮）→ 自定义卡面**
+
+1. 填 `unit_id` → 查询，能看到这张卡最多 10 层纹理（图标 128² / 立绘 256×512 /
+   NAVI 1024² / 半身像 512×1024）及各自所在资源包
+2. 填 PNG 路径（服务端所在机器上能读到的）→ 收料并归档
+3. 选模式执行：
+   - **只出命令** —— 不改文件，复制命令到别处跑
+   - **改写服务端资源包** —— 自动备份到 `assets/cardface_backups`，客户端重下该包后生效
+   - **推送客户端** —— adb 直推 `files/install/...`，重启游戏立刻生效
+
+命令行等价操作：
+
+```powershell
+cd honoka-chan-dev
+python tools\cardface.py list  --unit 41107008
+python tools\cardface.py server --unit 41107008 --png my.png --yes
+python tools\cardface.py push   --unit 41107008 --png my.png
+python tools\cardface.py restore --unit 41107008     # 回滚
+```
+
 ---
 
 ## 四、常见问题
@@ -177,4 +202,5 @@ $env:JAVA_HOME="D:\LLSIFLocal\jdk-17.0.14+7"
 
 | 版本 | 日期 | 内容 |
 |---|---|---|
+| v1.1.0 | 2026-10-22 | 自定义卡面（查纹理 / 收料 / 三种落地 / 回滚）；honoka v4 加解密逐字节可复现 |
 | v1.0.0 | 2026-10-22 | 首个可分发版本：启动器（Windows/Android）、服务端改造、GM 面板、自动打歌 |
