@@ -18,7 +18,7 @@ LoveLive! 学园偶像祭（国服 9.7.1）本地化运行的**桌面/移动启�
 |---|---|---|
 | 数据包 `LLSIFLocal-数据包-*.7z` | 单独分发（约 15 GB，超出 GitHub Release 单文件上限） | 服务端 + 全量游戏资源 |
 | [`LLSIFLocal-Launcher-1.1.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-windows-x64.zip) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Windows 启动器 |
-| [`LLSIFLocal-Launcher-1.1.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-android.apk) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Android 启动器（可选） |
+| [`LLSIFLocal-Launcher-1.1.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-android.apk) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Android 启动器（含内嵌服务端） |
 | 客户端 APK | 自备 | 需要按你的服务端 IP 改包，见第 4 节 |
 
 **磁盘要求**：解压数据包约 16 GB（压缩包本身另需 15 GB）。
@@ -150,6 +150,32 @@ python tools\cardface.py restore --unit 41107008     # 回滚
 
 ---
 
+## 三·六、手机开服（Android 内嵌服务端）
+
+启动器 APK 里**自带服务端**，手机可以自己开服，不需要 PC。
+
+1. 打开 App → 总览页显示数据目录：
+   `/storage/emulated/0/Android/data/com.llsiflocal.llsif_local_admin/files/srv`
+2. 用数据线把 PC 上 `honoka-chan-dev/assets` 与 `honoka-chan-dev/static` 整个拷进去
+   （约 15 GB，**不需要 root**，也不需要存储权限）
+3. 点「启动服务端」，服务端在手机上监听 `8080`
+4. 客户端地址：同一台手机填 `127.0.0.1`，其它设备填手机的局域网 IP
+
+从源码出包（服务端是伪装成 native lib 的 Go 可执行文件）：
+
+```powershell
+cd launcher
+.\tool\build_android_server.ps1                             # 交叉编译 + 自检 PIE/linker64
+..\sdk\flutter\bin\flutter.bat build apk --release
+```
+
+> 为什么能跑：`GOOS=android` 的 Go 产物是 PIE 且 interp 指向 `/system/bin/linker64`；
+> 放进 APK 的 `lib/arm64-v8a/` 后属于可执行的 `apk_data_file`，
+> 绕开「Android 10+ 不许执行可写目录文件」的限制。细节见 `docs/` 里回合 15。
+
+限制：只带 arm64（32 位机加 `-Abis armeabi-v7a`）；服务端与 App 同生命周期，
+App 被杀就一起没（尚未做前台 Service）。
+
 ## 四、常见问题
 
 | 现象 | 原因 | 解决 |
@@ -202,5 +228,6 @@ $env:JAVA_HOME="D:\LLSIFLocal\jdk-17.0.14+7"
 
 | 版本 | 日期 | 内容 |
 |---|---|---|
+| v1.2.0 | 2026-10-22 | 手机开服：APK 内嵌 arm64 服务端（PIE + `/system/bin/linker64`），数据目录体检与初始化 |
 | v1.1.0 | 2026-10-22 | 自定义卡面（查纹理 / 收料 / 三种落地 / 回滚）；honoka v4 加解密逐字节可复现 |
 | v1.0.0 | 2026-10-22 | 首个可分发版本：启动器（Windows/Android）、服务端改造、GM 面板、自动打歌 |

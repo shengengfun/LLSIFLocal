@@ -14,6 +14,8 @@ launcher/android/app/build/
 launcher/android/app/debug/
 launcher/android/app/profile/
 launcher/android/app/release/
+# 交叉编译出来的服务端二进制（用 tool/build_android_server.ps1 现场生成）
+launcher/android/app/src/main/jniLibs/
 *.jks
 *.keystore
 !askey.keystore
