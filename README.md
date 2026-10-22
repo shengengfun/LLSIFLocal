@@ -17,9 +17,9 @@ LoveLive! 学园偶像祭（国服 9.7.1）本地化运行的**桌面/移动启�
 | 文件 | 来源 | 说明 |
 |---|---|---|
 | 数据包 `LLSIFLocal-数据包-*.7z` | 单独分发（约 15 GB，超出 GitHub Release 单文件上限） | 服务端 + 全量游戏资源 |
-| [`LLSIFLocal-Launcher-1.1.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-windows-x64.zip) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Windows 启动器 |
-| [`LLSIFLocal-Launcher-1.1.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.1.0/LLSIFLocal-Launcher-1.1.0-android.apk) | [Release v1.1.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.1.0) | Android 启动器（含内嵌服务端） |
-| 客户端 APK | 自备 | 需要按你的服务端 IP 改包，见第 4 节 |
+| [`LLSIFLocal-Launcher-1.3.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.3.0/LLSIFLocal-Launcher-1.3.0-windows-x64.zip) | [Release v1.3.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.3.0) | Windows 启动器 |
+| [`LLSIFLocal-Launcher-1.3.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.3.0/LLSIFLocal-Launcher-1.3.0-android.apk) | [Release v1.3.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.3.0) | Android 启动器（含内嵌服务端） |
+| 客户端 APK | 自备 | 打一次「通用中转包」以后换 IP 不用再打，见第 4 节 |
 
 **磁盘要求**：解压数据包约 16 GB（压缩包本身另需 15 GB）。
 
@@ -89,11 +89,31 @@ honoka-chan.exe
 ### 4. 客户端 APK
 
 数据包**不含** APK（游戏本体版权原因不随包分发）。你自己手上应有一份 9.7.1 的安装包，
-按你的服务端 IP 改包后再装：
+改包后再装。
+
+**推荐：通用中转包（一次打包，以后换 IP 不用再打）**
 
 ```powershell
 cd D:\LLSIFLocal\honoka-chan-dev
 # 需要：apktool.jar、apksigner、zipalign、honoka2.exe、jdk17（路径在脚本头部可改）
+powershell -ExecutionPolicy Bypass -File .\tools\patch_client_lan.ps1 `
+    -Ip 127.0.0.1 -RelayUpstream 192.168.0.106 -NoInstall
+```
+
+产物 `temp\netpatch\client_lan_127_0_0_1.apk`。客户端内部地址固定为 `127.0.0.1:8080`，
+由 APK 内的 Relay 转发到 `RelayUpstream`。换服务端电脑时**不用重打包**：
+进游戏 → 右边缘把手 → 「连接」页签 → 填新 IP → 「应用」，立刻生效。
+
+> ⚠️ 这个模式靠「自己转发给自己」，所以**别在设备上留 iptables 的 loopback DNAT** 规则，
+> 否则 `127.0.0.1:8080` 会被改写走，Relay 收不到连接（表现为卡启动页 + 网络请求超时）。
+> 如果以前加过，清掉：
+> ```bash
+> adb shell su -c 'iptables -t nat -D OUTPUT -d 127.0.0.1/32 -p tcp --dport 8080 -j DNAT --to-destination <旧IP>:8080'
+> ```
+
+**旧做法：把 IP 焊死进包（换 IP 就得重打）**
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\patch_client_lan.ps1 -Ip 192.168.0.106 -NoInstall
 ```
 
@@ -101,10 +121,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\patch_client_lan.ps1 -Ip 192.16
 它做三件事：把 ghome 的 `/v1/*` 地址改成 `http://<IP>:8080`、把 `AppAssets.zip` 里的
 `server_info.json` 同步成同一个地址、把 `server_version` 对齐（否则会停在「下载 NaN%」）。
 
+**服务端侧**：`config.json` 里保持 `"cdn_server": "auto"`，资源下载地址会按请求的
+Host 头自动推导，所以服务端换机器、客户端换 IP 都不用改配置。
+
 > 已装过同签名旧包时直接 `adb install -r` 覆盖，**存档不丢**。
 
 **装到平板/手机**：与电脑处于同一局域网，允许「未知来源」安装。
-服务器地址不是 `192.168.0.106` 就必须重打包，APK 里的地址是编译期写死的。
 
 ### 5. 登录
 
@@ -228,6 +250,7 @@ $env:JAVA_HOME="D:\LLSIFLocal\jdk-17.0.14+7"
 
 | 版本 | 日期 | 内容 |
 |---|---|---|
+| v1.3.0 | 2026-10-22 | 通用客户端（中转模式，换 IP 不用重打包）；服务端 `cdn_server: auto`；修启动器 Android 白屏（`shared_preferences_android` 版本钉回 2.4.20） |
 | v1.2.0 | 2026-10-22 | 手机开服：APK 内嵌 arm64 服务端（PIE + `/system/bin/linker64`），数据目录体检与初始化 |
 | v1.1.0 | 2026-10-22 | 自定义卡面（查纹理 / 收料 / 三种落地 / 回滚）；honoka v4 加解密逐字节可复现 |
 | v1.0.0 | 2026-10-22 | 首个可分发版本：启动器（Windows/Android）、服务端改造、GM 面板、自动打歌 |
