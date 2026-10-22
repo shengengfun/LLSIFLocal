@@ -16,9 +16,9 @@ LoveLive! 学园偶像祭（国服 9.7.1）本地化运行的**桌面/移动启�
 
 | 文件 | 来源 | 说明 |
 |---|---|---|
-| 数据包 `LLSIFLocal-数据包-*.7z` | Release 说明页给出的地址 | 约 15 GB，含服务端 + 全量游戏资源 |
-| `LLSIFLocal-Launcher-*-windows-x64.zip` | 本仓库 Release | Windows 启动器 |
-| `LLSIFLocal-Launcher-*-android.apk` | 本仓库 Release | Android 启动器（可选） |
+| 数据包 `LLSIFLocal-数据包-*.7z` | 单独分发（约 15 GB，超出 GitHub Release 单文件上限） | 服务端 + 全量游戏资源 |
+| [`LLSIFLocal-Launcher-1.0.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.0.0/LLSIFLocal-Launcher-1.0.0-windows-x64.zip) | [Release v1.0.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.0.0) | Windows 启动器 |
+| [`LLSIFLocal-Launcher-1.0.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.0.0/LLSIFLocal-Launcher-1.0.0-android.apk) | [Release v1.0.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.0.0) | Android 启动器（可选） |
 | 客户端 APK | 自备 | 需要按你的服务端 IP 改包，见第 4 节 |
 
 **磁盘要求**：解压数据包约 16 GB（压缩包本身另需 15 GB）。
@@ -170,3 +170,11 @@ $env:JAVA_HOME="D:\LLSIFLocal\jdk-17.0.14+7"
 启动器源码：MIT（见 [LICENSE](LICENSE)）。
 服务端为上游项目，遵循其自身许可。
 游戏本体与全部美术、音频、剧情资源版权归原作者与发行方所有，**本仓库不包含**。
+
+---
+
+## 八、版本
+
+| 版本 | 日期 | 内容 |
+|---|---|---|
+| v1.0.0 | 2026-10-22 | 首个可分发版本：启动器（Windows/Android）、服务端改造、GM 面板、自动打歌 |
