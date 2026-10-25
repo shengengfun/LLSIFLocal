@@ -32,6 +32,18 @@ String? _bodyFor(Uri uri) {
   }
   if (path.startsWith('/local/admin/master/lives')) return _fixture('lives');
   if (path.startsWith('/local/admin/lives/tracks')) return _fixture('live_tracks');
+  if (path == '/local/admin/community/toggle') {
+    return '{"ok":true,"enabled":true}';
+  }
+  if (path == '/local/admin/community/packages') {
+    return _fixture('community_packages');
+  }
+  if (path == '/local/admin/community/beatmaps') {
+    return _fixture('community_charts');
+  }
+  if (path == '/local/admin/community/chart-stat') {
+    return _fixture('community_chart_stat');
+  }
   if (path == '/local/admin/unlock') {
     return '{"ok":true,"lives_unlocked":972,"scenarios_marked":0}';
   }
@@ -174,7 +186,10 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_wrap(CardsPage(api: _api())));
+    // CardsPage 现在需要 AppState（社区谱开关要在页面里改状态），
+    // 之前这里只传 api，analyze 一直报 missing_required_argument。
+    await tester
+        .pumpWidget(_wrap(CardsPage(api: _api(), state: AppState.forTest(api: _api()))));
     await tester.pumpAndSettle();
 
     expect(find.text('全部稀有度'), findsOneWidget);
@@ -213,5 +228,111 @@ void main() {
     expect(find.text('扫描卡面目录'), findsOneWidget);
     expect(find.text('复制 texb 转换命令'), findsOneWidget);
     expect(find.text('cardart_1'), findsOneWidget);
+  });
+
+  test('社区曲目列表解析体检字段', () async {
+    final r = await _api().communityPackages();
+    expect(r.count, 2);
+    expect(r.tracks.length, 2);
+
+    final ok = r.tracks.first;
+    expect(ok.trackId, 24);
+    expect(ok.name, '仙乡梦旅 【普通】');
+    expect(ok.healthy, true);
+    expect(ok.difficultyLabel, '普通');
+    expect(ok.memberLabel, 'Liella');
+    expect(ok.notes, 350);
+
+    // 第二首：缺谱面 + 包大小不一致 —— 客户端会「通信中断」，必须能定位到原因。
+    final bad = r.tracks.last;
+    expect(bad.healthy, false);
+    expect(bad.breaksClient, true);
+    expect(bad.problemLabels, contains('缺谱面文件'));
+    expect(bad.problemLabels.any((t) => t.contains('包大小不一致')), true);
+  });
+
+  test('谱面解析：粘裸数组也能拿到预览与建议难度', () async {
+    final r = await _api().communityChartStat(
+        '[{"timing_sec":1.0,"position":5,"effect":1,"effect_value":0}]');
+    expect(r.stat.notes, 350);
+    expect(r.stat.density, closeTo(2.48, 0.01));
+    expect(r.stat.duration, '2:21');
+    expect(r.suggestedDifficulty, 2);
+  });
+
+  test('谱面解析：非法 JSON 直接报错，不会静默通过', () async {
+    await expectLater(
+      _api().communityChartStat('not-json'),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('发布走 multipart 上传，进度回调到 100%', () async {
+    // flutter_test 默认把 HttpClient 换成「一律 400」的桩，这里要真发一次
+    // multipart，所以把 HttpOverrides 摘掉，用本机真 socket 起一个迷你服务端。
+    HttpOverrides.global = null;
+    addTearDown(() => HttpOverrides.global = null);
+
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final bodies = <List<int>>[];
+    server.listen((req) async {
+      final bytes = await req.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
+      bodies.add(bytes);
+      req.response.headers.contentType =
+          ContentType('application', 'json', charset: 'utf-8');
+      req.response.write('{"ok":true,"track_id":901,"setting_id":20001,'
+          '"difficulty_id":4501,"music_id":9026,'
+          '"chart":{"notes":3,"seconds":2.0},'
+          '"resources":["beatmaps/Com_9026_1.json"],'
+          '"download":["1_901_1.zip","1_901_2.zip"]}');
+      await req.response.close();
+    });
+
+    final api = LocalApi(baseUrl: 'http://127.0.0.1:${server.port}');
+    final progress = <double>[];
+    final res = await api.publishCommunityTrack(
+      name: '测试曲',
+      chartJson: '[{"timing_sec":1.0,"position":5,"effect":1}]',
+      chartName: r'C:\tmp\my_chart.json',
+      cover: List<int>.filled(300000, 7),
+      coverName: 'cover.png',
+      onProgress: progress.add,
+    );
+
+    expect(res.trackId, 901);
+    expect(res.chart?.notes, 3);
+    expect(res.download.length, 2);
+    expect(res.lacksPackages, false);
+    expect(progress, isNotEmpty);
+    expect(progress.last, closeTo(1.0, 0.001));
+
+    // 谱面必须以裸音符数组发出（服务端按数组解析），文件名只取 basename。
+    final text = utf8.decode(bodies.single, allowMalformed: true);
+    expect(text, contains('name="name"'));
+    expect(text, contains('my_chart.json'));
+    expect(text, contains('name="cover"'));
+    expect(text, contains('"timing_sec":1.0'));
+  });
+
+  testWidgets('社区谱面 Tab 展示已发布曲目、体检结果与谱面库', (tester) async {
+    tester.view.physicalSize = const Size(1400, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(LivesPage(api: _api())));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('社区谱面'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已发布曲目（2）'), findsOneWidget);
+    expect(find.text('仙乡梦旅 【普通】'), findsOneWidget);
+    // 健康行有「可下载」徽章；坏行把原因写出来。
+    expect(find.text('可下载'), findsOneWidget);
+    expect(find.textContaining('1 首有问题'), findsOneWidget);
+    expect(find.text('缺谱面文件'), findsWidgets);
+    expect(find.text('发布社区曲'), findsOneWidget);
+    expect(find.textContaining('谱面库（附加到官方难度）'), findsOneWidget);
   });
 }

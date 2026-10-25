@@ -17,8 +17,8 @@ LoveLive! 学园偶像祭（国服 9.7.1）本地化运行的**桌面/移动启�
 | 文件 | 来源 | 说明 |
 |---|---|---|
 | 数据包 `LLSIFLocal-数据包-*.7z` | 单独分发（约 15 GB，超出 GitHub Release 单文件上限） | 服务端 + 全量游戏资源 |
-| [`LLSIFLocal-Launcher-1.3.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.3.0/LLSIFLocal-Launcher-1.3.0-windows-x64.zip) | [Release v1.3.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.3.0) | Windows 启动器 |
-| [`LLSIFLocal-Launcher-1.3.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.3.0/LLSIFLocal-Launcher-1.3.0-android.apk) | [Release v1.3.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.3.0) | Android 启动器（含内嵌服务端） |
+| [`LLSIFLocal-Launcher-1.4.0-windows-x64.zip`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.4.0/LLSIFLocal-Launcher-1.4.0-windows-x64.zip) | [Release v1.4.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.4.0) | Windows 启动器 |
+| [`LLSIFLocal-Launcher-1.4.0-android.apk`](https://github.com/shengengfun/LLSIFLocal/releases/download/v1.4.0/LLSIFLocal-Launcher-1.4.0-android.apk) | [Release v1.4.0](https://github.com/shengengfun/LLSIFLocal/releases/tag/v1.4.0) | Android 启动器（含内嵌服务端） |
 | 客户端 APK | 自备 | 打一次「通用中转包」以后换 IP 不用再打，见第 4 节 |
 
 **磁盘要求**：解压数据包约 16 GB（压缩包本身另需 15 GB）。
@@ -250,6 +250,7 @@ $env:JAVA_HOME="D:\LLSIFLocal\jdk-17.0.14+7"
 
 | 版本 | 日期 | 内容 |
 |---|---|---|
+| v1.4.0 | 2026-10-26 | 启动器社区谱面闭环：已发布曲目列表（封面 / 难度号 / 音符 / 包大小 / 体检徽章）、发布表单（谱面解析预览 + 封面/标题/音频 + 上传进度）、撤下需输曲名确认；服务端 `community/packages` 补 `notes/seconds/pkg_size/member_category`、`publish` 回填资源与下发包清单；修横屏手机导航栏裁掉「乐曲/工具」 |
 | v1.3.0 | 2026-10-22 | 通用客户端（中转模式，换 IP 不用重打包）；服务端 `cdn_server: auto`；修启动器 Android 白屏（`shared_preferences_android` 版本钉回 2.4.20） |
 | v1.2.0 | 2026-10-22 | 手机开服：APK 内嵌 arm64 服务端（PIE + `/system/bin/linker64`），数据目录体检与初始化 |
 | v1.1.0 | 2026-10-22 | 自定义卡面（查纹理 / 收料 / 三种落地 / 回滚）；honoka v4 加解密逐字节可复现 |

@@ -1,8 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 启动器自己要在 Android 上跑 honoka-chan 服务端并连它；Flutter 的 release
+         manifest 默认不带 INTERNET，这里必须显式声明，否则连 127.0.0.1 都会被拒。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- 服务端以 native lib 形式装在 lib/arm64-v8a/libhonoka_chan.so。
+         必须让安装器把 lib 解压成真实文件（而不是留在 APK 里 mmap），
+         否则 Process.start 找不到路径。 -->
     <application
         android:label="llsif_local_admin"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
+        android:extractNativeLibs="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

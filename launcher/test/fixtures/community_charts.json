@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "official_backups": 0,
+  "charts": [
+    {
+      "name": "测试曲_基础点击",
+      "notes": 120,
+      "seconds": 60.5,
+      "attached": [3],
+      "track_id": 5,
+      "cover_url": "/local/admin/live-cover/5"
+    }
+  ]
+}

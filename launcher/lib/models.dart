@@ -19,6 +19,13 @@ bool _asBool(dynamic v) {
   return false;
 }
 
+double _asDouble(dynamic v, [double fallback = 0]) {
+  if (v is double) return v;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 class Overview {
   final String appVersion;
   final int userCount;
@@ -162,6 +169,10 @@ class UnitItem {
   final int pureMax;
   final int coolMax;
   final bool owned;
+  final int skillId;
+  final int unitNumber;
+  final String normalIcon;
+  final String rankMaxIcon;
 
   const UnitItem({
     required this.unitId,
@@ -173,6 +184,10 @@ class UnitItem {
     required this.pureMax,
     required this.coolMax,
     required this.owned,
+    this.skillId = 0,
+    this.unitNumber = 0,
+    this.normalIcon = '',
+    this.rankMaxIcon = '',
   });
 
   factory UnitItem.fromJson(Map<String, dynamic> j) => UnitItem(
@@ -185,6 +200,70 @@ class UnitItem {
         pureMax: _asInt(j['pure_max']),
         coolMax: _asInt(j['cool_max']),
         owned: _asInt(j['owned_by_count']) > 0,
+        skillId: _asInt(j['skill_id']),
+        unitNumber: _asInt(j['unit_number']),
+        normalIcon: _asString(j['normal_icon']),
+        rankMaxIcon: _asString(j['rank_max_icon']),
+      );
+}
+
+/// 物品表一行（发放面板右侧的查询列表）。
+class ItemEntry {
+  final int itemId;
+  final String name;
+  final String nameEn;
+  final String desc;
+  final String icon;
+  final int category;
+
+  const ItemEntry({
+    required this.itemId,
+    required this.name,
+    required this.nameEn,
+    required this.desc,
+    required this.icon,
+    required this.category,
+  });
+
+  factory ItemEntry.fromJson(Map<String, dynamic> j) => ItemEntry(
+        itemId: _asInt(j['item_id']),
+        name: _asString(j['name']),
+        nameEn: _asString(j['name_en']),
+        desc: _asString(j['desc']),
+        icon: _asString(j['icon']),
+        category: _asInt(j['category']),
+      );
+}
+
+/// 社区谱库的一张谱。
+class CommunityChart {
+  final String name;
+  final int notes;
+  final double seconds;
+  final List<int> attached;
+  /// 附加到的曲目（第一个命中），0 = 尚未附加。
+  final int trackId;
+  /// 封面相对路径（/local/admin/live-cover/:track），空 = 未附加无封面。
+  final String coverUrl;
+
+  const CommunityChart({
+    required this.name,
+    required this.notes,
+    required this.seconds,
+    required this.attached,
+    this.trackId = 0,
+    this.coverUrl = '',
+  });
+
+  factory CommunityChart.fromJson(Map<String, dynamic> j) => CommunityChart(
+        name: _asString(j['name']),
+        notes: _asInt(j['notes']),
+        seconds: _asDouble(j['seconds']),
+        attached: (j['attached'] as List<dynamic>? ?? const [])
+            .map((e) => _asInt(e))
+            .toList(),
+        trackId: _asInt(j['track_id']),
+        coverUrl: _asString(j['cover_url']),
       );
 }
 
@@ -288,8 +367,9 @@ class MailBoxItem {
         opened: _asBool(j['opened']),
       );
 
-  /// add_type 1000 是部员（卡），其余按道具看。
-  bool get isUnit => addType == 1000;
+  /// add_type 1001 是部员（卡），1000 是道具（与客户端 const.lua 的
+  /// ADD_TYPES 对齐）。
+  bool get isUnit => addType == 1001;
 }
 
 /// 一首曲子下的一个难度。
@@ -394,6 +474,8 @@ class CardArtItem {
   final int width;
   final int height;
   final String updatedAt;
+  final int unitId;
+  final List<String> kinds;
 
   const CardArtItem({
     required this.name,
@@ -402,6 +484,8 @@ class CardArtItem {
     required this.width,
     required this.height,
     required this.updatedAt,
+    this.unitId = 0,
+    this.kinds = const [],
   });
 
   factory CardArtItem.fromJson(Map<String, dynamic> j) => CardArtItem(
@@ -411,6 +495,98 @@ class CardArtItem {
         width: _asInt(j['width']),
         height: _asInt(j['height']),
         updatedAt: _asString(j['updated_at']),
+        unitId: _asInt(j['unit_id']),
+        kinds: (j['kinds'] as List<dynamic>? ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+      );
+}
+
+/// 从设备上传卡面后的返回。
+class CardArtImportResult {
+  final bool ok;
+  final String message;
+  final String name;
+  final String pngPath;
+  final int width;
+  final int height;
+  final String nextSteps;
+
+  const CardArtImportResult({
+    required this.ok,
+    this.message = '',
+    this.name = '',
+    this.pngPath = '',
+    this.width = 0,
+    this.height = 0,
+    this.nextSteps = '',
+  });
+
+  factory CardArtImportResult.fromJson(Map<String, dynamic> j) =>
+      CardArtImportResult(
+        ok: j['ok'] == true,
+        message: _asString(j['message']),
+        name: _asString(j['name']),
+        pngPath: _asString(j['png_path']),
+        width: _asInt(j['width']),
+        height: _asInt(j['height']),
+        nextSteps: _asString(j['next_steps'] ?? j['nextSteps']),
+      );
+}
+
+/// 一张卡在服务端资源包里的一层纹理。
+class CardTexbLayer {
+  final String kind;
+  final String entry;
+  final String archive;
+  final bool signed;
+
+  const CardTexbLayer({
+    required this.kind,
+    required this.entry,
+    required this.archive,
+    required this.signed,
+  });
+
+  String get fileName {
+    final i = entry.lastIndexOf('/');
+    return i < 0 ? entry : entry.substring(i + 1);
+  }
+
+  factory CardTexbLayer.fromJson(Map<String, dynamic> j) => CardTexbLayer(
+        kind: _asString(j['kind']),
+        entry: _asString(j['entry']),
+        archive: _asString(j['archive']),
+        signed: j['signed'] == true,
+      );
+}
+
+/// 卡面落地的结果。
+class CardArtApplyResult {
+  final bool ok;
+  final String message;
+  final String mode;
+  final String command;
+  final String output;
+  final bool ran;
+
+  const CardArtApplyResult({
+    required this.ok,
+    required this.message,
+    required this.mode,
+    required this.command,
+    required this.output,
+    required this.ran,
+  });
+
+  factory CardArtApplyResult.fromJson(Map<String, dynamic> j) =>
+      CardArtApplyResult(
+        ok: j['ok'] == true,
+        message: _asString(j['message']),
+        mode: _asString(j['mode']),
+        command: _asString(j['command']),
+        output: _asString(j['output']),
+        ran: j['ran'] == true,
       );
 }
 
@@ -426,4 +602,196 @@ class BackupItem {
         size: _asInt(j['size']),
         time: _asInt(j['time']),
       );
+}
+
+/// 谱面解析结果（`/local/admin/community/chart-stat`）。
+class ChartStat {
+  final int notes;
+  final double seconds;
+  final double density;
+  final int maxChord;
+  final int chords;
+  final int longNotes;
+  final int starNotes;
+  final bool swing;
+  final int lanes;
+
+  const ChartStat({
+    required this.notes,
+    required this.seconds,
+    this.density = 0,
+    this.maxChord = 0,
+    this.chords = 0,
+    this.longNotes = 0,
+    this.starNotes = 0,
+    this.swing = false,
+    this.lanes = 0,
+  });
+
+  factory ChartStat.fromJson(Map<String, dynamic> j) => ChartStat(
+        notes: _asInt(j['notes']),
+        seconds: _asDouble(j['seconds']),
+        density: _asDouble(j['notes_per_sec']),
+        maxChord: _asInt(j['max_chord']),
+        chords: _asInt(j['chord_count']),
+        longNotes: _asInt(j['long_notes']),
+        starNotes: _asInt(j['star_notes']),
+        swing: _asInt(j['swing_flag']) != 0,
+        lanes: _asInt(j['lanes']),
+      );
+
+  /// `m:ss`，用于卡片上显示时长。
+  String get duration {
+    final total = seconds.round();
+    final m = total ~/ 60;
+    final s = (total % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+}
+
+/// 已发布到服务端的社区曲（`/local/admin/community/packages` 的一行）。
+///
+/// 这些是真正下发给客户端的曲目：谱面在 beatmaps/、资源在
+/// `1_<track>_1.zip`、安装信息在 `1_<track>_2.zip`，并在 download_m 登记。
+class CommunityPackage {
+  final int trackId;
+  final String name;
+  final int memberCategory;
+  final int difficulty;
+  final int difficultyId;
+  final String notesAsset;
+  final int notes;
+  final double seconds;
+  final int pkgSize;
+  final bool chartOk;
+  final bool pkg1Ok;
+  final bool pkg2Ok;
+  final bool downloadOk;
+  final bool sizeMismatch;
+  final List<String> missing;
+
+  const CommunityPackage({
+    required this.trackId,
+    required this.name,
+    this.memberCategory = 0,
+    this.difficulty = 0,
+    this.difficultyId = 0,
+    this.notesAsset = '',
+    this.notes = 0,
+    this.seconds = 0,
+    this.pkgSize = 0,
+    this.chartOk = false,
+    this.pkg1Ok = false,
+    this.pkg2Ok = false,
+    this.downloadOk = false,
+    this.sizeMismatch = false,
+    this.missing = const [],
+  });
+
+  factory CommunityPackage.fromJson(Map<String, dynamic> j) => CommunityPackage(
+        trackId: _asInt(j['track_id']),
+        name: _asString(j['name']),
+        memberCategory: _asInt(j['member_category']),
+        difficulty: _asInt(j['difficulty']),
+        difficultyId: _asInt(j['difficulty_id']),
+        notesAsset: _asString(j['notes_asset']),
+        notes: _asInt(j['notes']),
+        seconds: _asDouble(j['seconds']),
+        pkgSize: _asInt(j['pkg_size']),
+        chartOk: _asBool(j['chart_ok']),
+        pkg1Ok: _asBool(j['pkg1_ok']),
+        pkg2Ok: _asBool(j['pkg2_ok']),
+        downloadOk: _asBool(j['download_ok']),
+        sizeMismatch: _asBool(j['size_mismatch']),
+        missing: (j['missing'] as List<dynamic>? ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+      );
+
+  /// 体检全绿：客户端能正常下载并开打。
+  bool get healthy => missing.isEmpty && !sizeMismatch;
+
+  /// 包大小与 download_m 登记不一致 —— 客户端会判定下载失败并弹「通信中断」。
+  bool get breaksClient => sizeMismatch;
+
+  static const _difficultyLabels = [
+    '未标注',
+    '普通',
+    '困难',
+    '专家',
+    '大师',
+    '特殊 1',
+    '特殊 2',
+  ];
+
+  String get difficultyLabel =>
+      _difficultyLabels[difficulty.clamp(0, _difficultyLabels.length - 1)];
+
+  static const _memberLabels = ['其他', "μ's", 'Aqours', '虹咲', 'Liella'];
+
+  String get memberLabel =>
+      _memberLabels[memberCategory.clamp(0, _memberLabels.length - 1)];
+
+  /// 徽章用：把 missing 翻成人话（顺序即严重度）。
+  List<String> get problemLabels {
+    final out = <String>[];
+    if (sizeMismatch) out.add('包大小不一致（客户端会「通信中断」）');
+    for (final m in missing) {
+      switch (m) {
+        case 'chart':
+          out.add('缺谱面文件');
+        case '1_T_1.zip':
+          out.add('缺资源包');
+        case '1_T_2.zip':
+          out.add('缺安装信息包');
+        case 'download_m':
+          out.add('未登记下载（客户端看不到）');
+        case 'download_m.pkg_size':
+          break; // 已由 sizeMismatch 覆盖，避免重复两行
+        default:
+          out.add(m);
+      }
+    }
+    return out;
+  }
+}
+
+/// 发布结果（`/local/admin/community/publish`）。
+class PublishOutcome {
+  final int trackId;
+  final int settingId;
+  final int difficultyId;
+  final int musicId;
+  final ChartStat? chart;
+  final List<String> resources;
+  final List<String> download;
+
+  const PublishOutcome({
+    required this.trackId,
+    required this.settingId,
+    required this.difficultyId,
+    required this.musicId,
+    this.chart,
+    this.resources = const [],
+    this.download = const [],
+  });
+
+  factory PublishOutcome.fromJson(Map<String, dynamic> j) => PublishOutcome(
+        trackId: _asInt(j['track_id']),
+        settingId: _asInt(j['setting_id']),
+        difficultyId: _asInt(j['difficulty_id']),
+        musicId: _asInt(j['music_id']),
+        chart: j['chart'] is Map<String, dynamic>
+            ? ChartStat.fromJson(j['chart'] as Map<String, dynamic>)
+            : null,
+        resources: (j['resources'] as List<dynamic>? ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+        download: (j['download'] as List<dynamic>? ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+      );
+
+  /// 没生成下发包 = 客户端下载不到资源（通常是没给音频/封面）。
+  bool get lacksPackages => download.isEmpty;
 }

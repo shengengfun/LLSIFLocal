@@ -1,7 +1,7 @@
 name: llsif_local_admin
 description: LLSIF 本地服务端管理与修改器（Windows / Android 共用 UI）
 publish_to: "none"
-version: 1.0.0+1
+version: 1.4.0+14
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -10,12 +10,20 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
-  shared_preferences: ^2.3.2
+  shared_preferences: 2.3.2
+  url_launcher: ^6.3.0
+  image_picker: ^1.1.2
+  file_picker: ^13.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+
+# shared_preferences_android 2.5.x 的 Kotlin 侧与 Dart 侧 Pigeon 签名对不上，
+# 运行期直接抛 NoSuchMethodError（表现为启动白屏），固定回 2.4.20。
+dependency_overrides:
+  shared_preferences_android: 2.4.20
 
 flutter:
   uses-material-design: true

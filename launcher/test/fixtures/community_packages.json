@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "count": 2,
+  "tracks": [
+    {
+      "track_id": 24,
+      "name": "仙乡梦旅 【普通】",
+      "member_category": 4,
+      "difficulty": 1,
+      "difficulty_id": 32,
+      "notes_asset": "Com_9002_1.json",
+      "notes": 350,
+      "seconds": 141.051,
+      "pkg_size": 4818381,
+      "chart_ok": true,
+      "pkg1_ok": true,
+      "pkg2_ok": true,
+      "download_ok": true,
+      "size_mismatch": false
+    },
+    {
+      "track_id": 27,
+      "name": "仙乡梦旅 【困难】",
+      "member_category": 4,
+      "difficulty": 3,
+      "difficulty_id": 33,
+      "notes_asset": "Com_9003_3.json",
+      "notes": 0,
+      "seconds": 0,
+      "pkg_size": 4818567,
+      "chart_ok": false,
+      "pkg1_ok": true,
+      "pkg2_ok": true,
+      "download_ok": true,
+      "missing": ["chart"],
+      "size_mismatch": true
+    }
+  ]
+}

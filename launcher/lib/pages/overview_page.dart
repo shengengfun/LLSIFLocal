@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +30,9 @@ class _OverviewPageState extends State<OverviewPage> {
   ServerInfo? _info;
   String? _infoError;
 
+  /// Android 上数据目录的体检结果（assets / static / 资源包数量）。
+  ServerRootStatus? _rootStatus;
+
   final List<LogLine> _logs = [];
   final Set<String> _seenLog = {};
   int _logSeq = 0;
@@ -51,6 +55,7 @@ class _OverviewPageState extends State<OverviewPage> {
     _dirCtrl.text = widget.state.workDir;
     _portCtrl.text = '${widget.state.port}';
     _refreshOverview();
+    if (Platform.isAndroid) _refreshRootStatus();
     _tick();
     _timer = Timer.periodic(const Duration(seconds: 2), (_) => _tick());
     widget.state.addListener(_onStateChanged);
@@ -70,6 +75,71 @@ class _OverviewPageState extends State<OverviewPage> {
   void _onStateChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _refreshRootStatus() async {
+    if (!Platform.isAndroid) return;
+    final root = widget.state.workDir;
+    if (root.isEmpty) return;
+    final st = await inspectServerRoot(root);
+    if (mounted) setState(() => _rootStatus = st);
+  }
+
+  /// Android 上「数据目录」这块的提示：缺什么、资源包拷了多少、怎么补。
+  Widget _androidServerHint(AppColors colors) {
+    final root = widget.state.workDir.isEmpty
+        ? androidServerRootCandidates().first
+        : widget.state.workDir;
+    final st = _rootStatus;
+    final ready = st?.ready ?? false;
+    final archives = st?.archives ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        _Hint(
+          colors: colors,
+          icon: ready ? Icons.check_circle_outline : Icons.folder_open,
+          text: '数据目录：$root\n'
+              '${st == null ? '正在检查…' : (ready ? 'assets/ 与 static/ 都在，资源包 $archives 个' : '缺 ${[if (!st.hasAssets) 'assets/', if (!st.hasStatic) 'static/'].join(' 与 ')}')}',
+          tint: ready ? colors.success : colors.destructive,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => _run(() async {
+                        await bootstrapAndroidRoot(
+                          root,
+                          cdnServer: 'http://${widget.state.host}:${widget.state.port}/static',
+                        );
+                        await _refreshRootStatus();
+                        return null;
+                      }),
+              icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+              label: const Text('初始化数据目录'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _refreshRootStatus,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('重新检查'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '手机开服只需要把 PC 上 honoka-chan-dev 里的 assets/ 与 static/ 两个目录'
+          '整个拷到上面的路径（用数据线即可，不需要 root）。\n'
+          '资源约 15 GB，客户端在本机就填 127.0.0.1，其它设备填手机局域网 IP。',
+          style: TextStyle(fontSize: 11.5, color: colors.mutedForeground),
+        ),
+      ],
+    );
   }
 
   Future<void> _tick() async {
@@ -392,14 +462,7 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
           if (_infoError != null)
             _InlineError(message: '读取服务端信息失败：$_infoError'),
-          if (!state.process.supported)
-            _Hint(
-              colors: colors,
-              icon: Icons.info_outline,
-              text: 'Android 不能直接运行 PC 版 honoka-chan.exe（它是 Windows 可执行文件），'
-                  '所以这个平台上「启动服务端」不可用，只能连局域网里的 PC 服务端；'
-                  '「终止服务」仍然可以调用服务端的关闭接口。',
-            ),
+          if (Platform.isAndroid) _androidServerHint(colors),
           const SizedBox(height: 14),
           _KvTable(
             rows: [

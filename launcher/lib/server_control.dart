@@ -273,7 +273,15 @@ enum ServerRuntime {  /// 由本 App 拉起的子进程。
 /// Windows 开发布局：`<root>/honoka-chan-dev/honoka-chan.exe`；
 /// 而 App 的可执行文件在 `<root>/srvapp/build/windows/x64/runner/Release/`。
 /// 所以从 App 目录和当前目录分别向上找，命中 `honoka-chan-dev/<exe>` 即返回。
+///
+/// Android：服务端是打包进 APK 的 native lib（见 tool/build_android_server.ps1），
+/// 数据根目录在外部存储的 app 私有目录下（免权限、可被 USB 访问）。
 Future<({String exe, String workDir})?> guessServerPaths() async {
+  if (Platform.isAndroid) {
+    final libDir = await androidNativeLibDir();
+    final exe = libDir == null ? '' : '$libDir/$androidServerLibName';
+    return (exe: exe, workDir: await androidServerRoot());
+  }
   if (!(Platform.isWindows || Platform.isLinux || Platform.isMacOS)) return null;
   final exeName = Platform.isWindows ? 'honoka-chan.exe' : 'honoka-chan';
   const dirName = 'honoka-chan-dev';
@@ -303,21 +311,149 @@ Future<({String exe, String workDir})?> guessServerPaths() async {
   return null;
 }
 
+// ---------------------------------------------------------------- Android 支持
+
+const androidAppId = 'com.llsiflocal.llsif_local_admin';
+
+/// 服务端在 APK 里的伪装文件名（见 tool/build_android_server.ps1）。
+const androidServerLibName = 'libhonoka_chan.so';
+
+/// 本 App 的 native lib 目录。
+///
+/// 没有平台通道可问，但 `/proc/self/maps` 里就有：本进程必然会映射自己的
+/// `libflutter.so` / `libapp.so`，它们就在 `/data/app/~~xxx/<pkg>/lib/<abi>/`。
+Future<String?> androidNativeLibDir() async {
+  try {
+    final maps = await File('/proc/self/maps').readAsLines();
+    for (final line in maps) {
+      final idx = line.indexOf('/data/app/');
+      if (idx < 0) continue;
+      final path = line.substring(idx).trim();
+      if (!path.contains('/lib/')) continue;
+      if (!(path.endsWith('/libflutter.so') || path.endsWith('/libapp.so'))) {
+        continue;
+      }
+      final dir = path.substring(0, path.lastIndexOf('/'));
+      return dir;
+    }
+  } on Object {
+    // 某些机型 /proc 受限，走下面的兜底。
+  }
+  return null;
+}
+
+/// Android 上的服务端数据根目录候选（按优先级）。
+///
+/// 首选 app 私有外部目录：免存储权限、卸载即清、USB 直接可见。
+List<String> androidServerRootCandidates() => const [
+      '/storage/emulated/0/Android/data/$androidAppId/files/srv',
+      '/sdcard/Android/data/$androidAppId/files/srv',
+      '/storage/emulated/0/LLSIFLocal/srv',
+    ];
+
+/// 选出真正的数据根目录：优先挑已经有 assets/ 与 static/ 的那个。
+Future<String> androidServerRoot() async {
+  for (final c in androidServerRootCandidates()) {
+    if (await Directory('$c/assets').exists() &&
+        await Directory('$c/static').exists()) {
+      return c;
+    }
+  }
+  return androidServerRootCandidates().first;
+}
+
+/// 数据目录体检结果。
+class ServerRootStatus {
+  const ServerRootStatus({
+    required this.root,
+    required this.hasAssets,
+    required this.hasStatic,
+    required this.archives,
+    required this.hasConfig,
+  });
+
+  final String root;
+  final bool hasAssets;
+  final bool hasStatic;
+
+  /// static/ 下资源包数量（判断 15GB 资源有没有拷齐）。
+  final int archives;
+  final bool hasConfig;
+
+  bool get ready => hasAssets && hasStatic;
+}
+
+/// 检查数据目录：缺什么、资源包拷了多少。
+Future<ServerRootStatus> inspectServerRoot(String root) async {
+  final assets = await Directory('$root/assets').exists();
+  final statics = await Directory('$root/static').exists();
+  final cfg = await File('$root/config.json').exists();
+  var n = 0;
+  if (statics) {
+    final dir = Directory('$root/static/Android/archives');
+    if (await dir.exists()) {
+      await for (final e in dir.list(followLinks: false)) {
+        if (e is File && e.path.toLowerCase().endsWith('.zip')) n++;
+      }
+    }
+  }
+  return ServerRootStatus(
+    root: root,
+    hasAssets: assets,
+    hasStatic: statics,
+    archives: n,
+    hasConfig: cfg,
+  );
+}
+
+/// 首次在 Android 上开服时把目录骨架和 config.json 建好。
+///
+/// 资源（assets/ 与 static/）没法塞进 APK（加起来 15GB+），
+/// 所以只建目录 + 写一份可用的 config.json，再提示用户把数据拷进来。
+Future<String> bootstrapAndroidRoot(String root, {String cdnServer = ''}) async {
+  final dir = Directory(root);
+  await dir.create(recursive: true);
+  await Directory('$root/assets').create(recursive: true);
+  await Directory('$root/static').create(recursive: true);
+
+  final cfg = File('$root/config.json');
+  if (!await cfg.exists()) {
+    final cdn = cdnServer.isEmpty ? 'http://127.0.0.1:8080/static' : cdnServer;
+    await cfg.writeAsString('''{
+    "app_name": "honoka-chan",
+    "settings": {
+        "listen_port": "8080",
+        "cdn_server": "$cdn",
+        "unlock_all_special_rotation": false
+    }
+}
+''');
+  }
+  return root;
+}
+
 /// 管理本 App 拉起的 honoka-chan 子进程。
 ///
-/// Android 上无法执行 PC 的 exe，`supported` 为 false，界面会禁用相关按钮
-/// 并说明原因；此时仍可通过 `/local/admin/shutdown` 停掉远端服务端。
+/// 桌面（Windows / Linux / macOS）跑 `honoka-chan-dev` 里的原生 exe。
+/// Android 跑的是打进 APK 的 `lib/arm64-v8a/libhonoka_chan.so`
+/// （伪装成 .so 的 Go 可执行文件，原因见 tool/build_android_server.ps1）。
+/// 两边都是 `Process.start`，区别只在路径与工作目录。
 class ServerProcess {
   Process? _process;
   final List<String> launchLog = [];
   static const _maxLaunchLog = 500;
 
-  bool get supported => Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  bool get supported =>
+      Platform.isAndroid ||
+      Platform.isWindows ||
+      Platform.isLinux ||
+      Platform.isMacOS;
   bool get running => _process != null;
   int? get pid => _process?.pid;
 
   String get defaultExePath {
     if (Platform.isWindows) return r'honoka-chan-dev\honoka-chan.exe';
+    if (Platform.isAndroid) return androidServerLibName;
     return 'honoka-chan-dev/honoka-chan';
   }
 
@@ -330,7 +466,14 @@ class ServerProcess {
     if (_process != null) return '服务端已在运行';
 
     final exe = File(exePath);
-    if (!await exe.exists()) return '找不到可执行文件：$exePath';
+    if (!await exe.exists()) {
+      if (Platform.isAndroid) {
+        return '找不到内置服务端：$exePath\n'
+            '这个 APK 没有打包 libhonoka_chan.so，'
+            '用 tool/build_android_server.ps1 重新出包。';
+      }
+      return '找不到可执行文件：$exePath';
+    }
 
     final dir = Directory(workingDirectory);
     if (!await dir.exists()) return '工作目录不存在：$workingDirectory';
@@ -338,11 +481,21 @@ class ServerProcess {
     launchLog
       ..clear()
       ..add('> 启动 $exePath');
+
+    if (Platform.isAndroid) {
+      await _ensureAndroidRoot(workingDirectory);
+    }
+
     try {
       final proc = await Process.start(
         exePath,
         const [],
         workingDirectory: workingDirectory,
+        // Android 上显式把数据根目录传进去：服务端装在 /data/app 里，
+        // 靠「exe 所在目录」推不出数据在哪（见 config/root.go 的 HC_ROOT）。
+        environment: Platform.isAndroid
+            ? {'HC_ROOT': workingDirectory}
+            : null,
         runInShell: false,
       );
       _process = proc;
@@ -350,7 +503,34 @@ class ServerProcess {
       return null;
     } on Object catch (e) {
       launchLog.add('! 启动失败：$e');
+      if (Platform.isAndroid) {
+        return '启动失败：$e\n'
+            '常见原因：APK 不是用 useLegacyPackaging=true 打的（lib 没解压），'
+            '或 libhonoka_chan.so 被 strip 破坏。';
+      }
       return '启动失败：$e';
+    }
+  }
+
+  /// Android 首次开服：补好目录骨架与 config.json，缺资源时把话说清楚。
+  Future<void> _ensureAndroidRoot(String root) async {
+    try {
+      final status = await inspectServerRoot(root);
+      if (!status.hasConfig) {
+        await bootstrapAndroidRoot(root);
+        launchLog.add('> 已写入默认 config.json');
+      }
+      if (!status.hasAssets) {
+        launchLog.add('! 缺 assets/ —— 请把 honoka-chan-dev/assets 整个拷到 $root');
+      }
+      if (!status.hasStatic) {
+        launchLog.add('! 缺 static/ —— 请把 honoka-chan-dev/static 整个拷到 $root');
+      } else if (status.archives == 0) {
+        launchLog.add('! static/Android/archives 里没有资源包 —— '
+            '客户端会下载失败，把 9260 个 zip 拷进去');
+      }
+    } on Object catch (e) {
+      launchLog.add('! 准备数据目录失败：$e');
     }
   }
 

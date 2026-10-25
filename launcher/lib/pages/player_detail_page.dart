@@ -190,7 +190,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
     setState(() => _saving = true);
     try {
       if (toMail) {
-        final addType = _mailAsUnit ? 1000 : 3001;
+        final addType = _mailAsUnit ? 1001 : 1000;
         final n = await widget.api.sendMail(
           widget.userId,
           subject: '管理员赠送',
@@ -429,103 +429,133 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
   }
 
   Widget _grantTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(builder: (context, box) {
+      final wide = box.maxWidth >= 700;
+      final left = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _grantUnitsCard(),
+          const SizedBox(height: 12),
+          _grantAccessoriesCard(),
+          const SizedBox(height: 12),
+          _buildItemCard(),
+          const SizedBox(height: 12),
+          _buildMailCard(),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '说明：道具进的是 user_item_data，游戏内 /item/itemList 会带上；'
+              '礼物箱走 user_present_box，点「领取」时服务端把道具/部员落库。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      );
+      if (!wide) return left;
+      // 宽屏：右侧放物品表，点一下直接把 ID 填进发放输入框。
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 5, child: left),
+          const VerticalDivider(width: 1),
+          Expanded(
+            flex: 4,
+            child: ItemTablePanel(
+              api: widget.api,
+              onPick: (id) {
+                final cur = _itemSpec.text.trim();
+                _itemSpec.text = cur.isEmpty ? '$id*1' : '$cur, $id*1';
+              },
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _grantUnitsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('发放卡牌', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('填 unit_id，用逗号或空格分隔；也可一键补齐全卡池。',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _grantUnitIds,
+              decoration: const InputDecoration(
+                labelText: '例如 31, 40, 49',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
               children: [
-                Text('发放卡牌', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text('填 unit_id，用逗号或空格分隔；也可一键补齐全卡池。',
-                    style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _grantUnitIds,
-                  decoration: const InputDecoration(
-                    labelText: '例如 31, 40, 49',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                FilledButton.icon(
+                  onPressed: _saving ? null : () => _grantUnits(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('发放'),
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: _saving ? null : () => _grantUnits(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('发放'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _saving ? null : () => _grantUnits(all: true),
-                      icon: const Icon(Icons.library_add),
-                      label: const Text('补齐全卡池'),
-                    ),
-                  ],
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : () => _grantUnits(all: true),
+                  icon: const Icon(Icons.library_add),
+                  label: const Text('补齐全卡池'),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      ),
+    );
+  }
+
+  Widget _grantAccessoriesCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('发放饰品', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('填 accessory_id，用逗号或空格分隔；同一饰品可多份。',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _grantAccessoryIds,
+              decoration: const InputDecoration(
+                labelText: '例如 1, 2, 3',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
               children: [
-                Text('发放饰品', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text('填 accessory_id，用逗号或空格分隔；同一饰品可多份。',
-                    style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _grantAccessoryIds,
-                  decoration: const InputDecoration(
-                    labelText: '例如 1, 2, 3',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                FilledButton.icon(
+                  onPressed: _saving ? null : () => _grantAccessories(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('发放'),
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: _saving ? null : () => _grantAccessories(),
-                      icon: const Icon(Icons.add),
-                      label: const Text('发放'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed:
-                          _saving ? null : () => _grantAccessories(all: true),
-                      icon: const Icon(Icons.library_add),
-                      label: const Text('补齐全饰品池'),
-                    ),
-                  ],
+                OutlinedButton.icon(
+                  onPressed:
+                      _saving ? null : () => _grantAccessories(all: true),
+                  icon: const Icon(Icons.library_add),
+                  label: const Text('补齐全饰品池'),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 12),
-        _buildItemCard(),
-        const SizedBox(height: 12),
-        _buildMailCard(),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            '说明：道具进的是 user_item_data，游戏内 /item/itemList 会带上；'
-            '礼物箱走 user_present_box，点「领取」时服务端把道具/部员落库。',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -737,6 +767,161 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
             child: Text(key, style: Theme.of(context).textTheme.bodySmall),
           ),
           Expanded(child: SelectableText(value)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 物品表查询面板（发放页右侧）：搜索 kg_item_m（642 项），点一下把 ID 填进发放输入框。
+class ItemTablePanel extends StatefulWidget {
+  const ItemTablePanel({super.key, required this.api, this.onPick});
+
+  final LocalApi api;
+  final ValueChanged<int>? onPick;
+
+  @override
+  State<ItemTablePanel> createState() => _ItemTablePanelState();
+}
+
+class _ItemTablePanelState extends State<ItemTablePanel> {
+  final _query = TextEditingController();
+  int _page = 1;
+  static const _size = 40;
+
+  int _total = 0;
+  List<ItemEntry> _items = const [];
+  String? _error;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final r = await widget.api.masterItems(
+        page: _page,
+        size: _size,
+        query: _query.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _total = r.total;
+        _items = r.items;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  int get _maxPage => _total <= 0 ? 1 : ((_total + _size - 1) ~/ _size);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_outlined, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text('物品表（$_total 项）', style: theme.textTheme.titleMedium)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _query,
+              decoration: const InputDecoration(
+                hintText: '搜索 ID / 名称 / 说明',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onSubmitted: (_) {
+                _page = 1;
+                _load();
+              },
+            ),
+          ),
+          Expanded(
+            child: _loading && _items.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? ListView(padding: const EdgeInsets.all(16), children: [
+                        Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                      ])
+                    : ListView.separated(
+                        itemCount: _items.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, i) {
+                          final it = _items[i];
+                          return ListTile(
+                            dense: true,
+                            title: Text('${it.itemId} · ${it.name}',
+                                overflow: TextOverflow.ellipsis),
+                            subtitle: it.desc.isEmpty
+                                ? null
+                                : Text(it.desc,
+                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                            trailing: const Icon(Icons.add_circle_outline, size: 18),
+                            onTap: () {
+                              widget.onPick?.call(it.itemId);
+                              showSnack(context, '已填入 ${it.itemId}*1');
+                            },
+                          );
+                        },
+                      ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 8, 6),
+            child: Row(
+              children: [
+                Text('第 $_page / $_maxPage 页', style: theme.textTheme.bodySmall),
+                const Spacer(),
+                IconButton(
+                  onPressed: _page > 1 && !_loading
+                      ? () {
+                          _page--;
+                          _load();
+                        }
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                IconButton(
+                  onPressed: _page < _maxPage && !_loading
+                      ? () {
+                          _page++;
+                          _load();
+                        }
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

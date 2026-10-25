@@ -36,6 +36,16 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        jniLibs {
+            // 服务端是伪装成 .so 的 Go 可执行文件：
+            //  - useLegacyPackaging 让 lib 解压成真实文件（否则 execve 找不到）
+            //  - keepDebugSymbols 防止 Flutter 的 strip 步骤把它削坏
+            useLegacyPackaging = true
+            keepDebugSymbols += "**/libhonoka_chan.so"
+        }
+    }
 }
 
 kotlin {

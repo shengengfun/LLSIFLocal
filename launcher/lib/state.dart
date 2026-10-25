@@ -27,12 +27,16 @@ class AppState extends ChangeNotifier {
   static const _kWorkDir = 'srv_workdir';
   static const _kDark = 'ui_dark';
   static const _kAutoStart = 'srv_autostart';
+  static const _kCommunity = 'ui_community';
 
   String host = '127.0.0.1';
   int port = 8080;
 
   /// 深色开关（默认浅色，与参考项目一致）。
   bool darkMode = false;
+
+  /// 社区内容开关：卡池页显示「造卡」入口、乐曲页显示「社区谱」面板。
+  bool communityOn = true;
 
   /// 打开 App 时如果连不上，是否自动把本机服务端拉起来。默认开。
   bool autoStartServer = true;
@@ -76,35 +80,59 @@ class AppState extends ChangeNotifier {
     port = prefs.getInt(_kPort) ?? port;
     darkMode = prefs.getBool(_kDark) ?? false;
     autoStartServer = prefs.getBool(_kAutoStart) ?? true;
+    communityOn = prefs.getBool(_kCommunity) ?? true;
     exePath = prefs.getString(_kExe) ?? '';
     workDir = prefs.getString(_kWorkDir) ?? '';
 
     // 首次运行时自动猜一下服务端位置，免得用户手填。
     if (exePath.isEmpty || workDir.isEmpty) {
-      final guess = await guessServerPaths();
-      if (guess != null) {
-        exePath = guess.exe;
-        workDir = guess.workDir;
-        await prefs.setString(_kExe, exePath);
-        await prefs.setString(_kWorkDir, workDir);
+      try {
+        final guess = await guessServerPaths();
+        if (guess != null) {
+          exePath = guess.exe;
+          workDir = guess.workDir;
+          await prefs.setString(_kExe, exePath);
+          await prefs.setString(_kWorkDir, workDir);
+        }
+      } on Object catch (e) {
+        // 猜不到不算致命错误，界面上还能手填。
+        debugPrint('guessServerPaths 失败: $e');
       }
     }
-    lanIps = await localLanIps();
+    try {
+      lanIps = await localLanIps();
+    } on Object catch (e) {
+      // 拿不到本机 IP 只影响提示文案，不该让启动流程挂掉。
+      debugPrint('localLanIps 失败: $e');
+      lanIps = const [];
+    }
     notifyListeners();
 
     // 直接进主程序，所以启动时就自己尝试连一次；连不上由总览页给出提示。
-    await _autoConnect();
+    try {
+      await _autoConnect();
+    } on Object catch (e) {
+      debugPrint('自动连接失败: $e');
+    }
 
     // 连不上且本机能跑服务端 → 直接把服务端拉起来，用户打开 App 就能用。
     if (!connected && autoStartServer && process.supported) {
-      autoStartError = await startServer();
+      try {
+        autoStartError = await startServer();
+      } on Object catch (e) {
+        autoStartError = '$e';
+      }
       notifyListeners();
     }
 
     _startWatchdog();
 
     // 首次启动就把 adb 转发补上，别等 5 秒。
-    await _adbTick();
+    try {
+      await _adbTick();
+    } on Object catch (e) {
+      debugPrint('adb 转发检查失败: $e');
+    }
   }
 
   /// 每 5 秒探一次服务端；连不上就试着拉起来，进程假死就重启。
@@ -224,6 +252,37 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setCommunityOn(bool value) async {
+    communityOn = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCommunity, value);
+    // 同步到服务端总开关（卡池 / 乐曲共用），失败不阻塞本地 UI。
+    if (_api != null) {
+      try {
+        await _api!.setCommunityToggle(value);
+      } on Object catch (e) {
+        debugPrint('同步社区开关到服务端失败: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  /// 从服务端读社区总开关，覆盖本地默认（仅在已连接时）。
+  Future<void> syncCommunityFromServer() async {
+    if (_api == null) return;
+    try {
+      final v = await _api!.communityToggle();
+      if (v != communityOn) {
+        communityOn = v;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_kCommunity, v);
+        notifyListeners();
+      }
+    } on Object catch (e) {
+      debugPrint('读取服务端社区开关失败: $e');
+    }
+  }
+
   /// 探测 /local/ping，成功才建立会话。
   Future<bool> connect() async {
     connectionError = null;
@@ -233,6 +292,7 @@ class AppState extends ChangeNotifier {
       _api = candidate;
       notifyListeners();
       await refreshRuntime();
+      await syncCommunityFromServer();
       return true;
     } on Object catch (e) {
       _api = null;
